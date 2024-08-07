@@ -87,15 +87,14 @@ impl Ball {
             grabing: false,
             surface_friction,
             retention,
-            stop_boucing: 0.05,
+            stop_boucing: 10.0,
             mass,
             force: (0.0, 0.0),
         }
     }
 
     fn friction_checks(&mut self) {
-        if self.y_vel.abs() < self.stop_boucing {
-            self.y_vel = 0.0;
+        if self.y + self.r >= screen_height() {
             self.x_vel = self.x_vel * self.surface_friction;
         }
     }
