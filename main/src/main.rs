@@ -1,10 +1,23 @@
 use macroquad::prelude::*;
 
+fn update_all_balls(balls: &mut Vec<Ball>, delta_time: f32, mouse_tregectory: &mut Vec<Vector>) {
+    for ball in balls.iter_mut() {
+        ball.throwing_logic(mouse_tregectory);
+        ball.update(delta_time);
+    }
+    for i in 0..balls.len() {
+        for j in i + 1..balls.len() {
+            let (left, right) = balls.split_at_mut(j);
+            left[i].collide(&mut right[0]);
+        }
+    }
+}
+
 #[macroquad::main("Physics Engine")]
 async fn main() {
     let mut balls = vec![
-        Ball::new(500.0, 100.0, 75.0, RED, 0.95, 0.6, 10.8),
-        Ball::new(100.0, 100.0, 45.0, YELLOW, 0.8, 0.8, 1.8),
+        Ball::new(500.0, 100.0, 75.0, RED, 0.999, 0.6, 10.8),
+        Ball::new(100.0, 100.0, 45.0, YELLOW, 0.999, 0.8, 1.8),
     ];
 
     let mut mouse_tregectory: Vec<Vector> = Vec::new();
@@ -23,18 +36,8 @@ async fn main() {
 
         clear_background(BLACK);
 
-        for ball in balls.iter_mut() {
-            ball.throwing_logic(&mut mouse_tregectory);
-            ball.update(delta_time);
-        }
+        update_all_balls(&mut balls, delta_time, &mut mouse_tregectory);
 
-        for i in 0..balls.len() {
-            let (ball, others) = balls.split_at_mut(i + 1);
-            let ball = &mut ball[i];
-            for other in others.iter_mut() {
-                ball.collide(other);
-            }
-        }
         // Logic for FPS
 
         draw_text(
@@ -196,8 +199,6 @@ impl Ball {
             if mouse_tregectory.len() > 20 {
                 mouse_tregectory.remove(0);
             }
-
-            self.vel = Vector::new(0.0, 0.0);
         } else if grabing == -1 {
             self.vel.x = 0.0;
             self.vel.y = 0.0;
@@ -211,6 +212,8 @@ impl Ball {
 
             let force = push;
             self.apply_force(force);
+
+            mouse_tregectory.clear();
         }
     }
 
@@ -264,6 +267,33 @@ impl Ball {
     }
 
     fn collide(&mut self, other: &mut Ball) {
-        // FIXME: Implement collision
+        let distance = self.pos.dist(&other.pos);
+        let sum_radii = self.r + other.r;
+
+        if distance < sum_radii {
+            let line_of_impact = other
+                .pos
+                .subract(&self.pos)
+                .divide(&Vector::new(distance, distance));
+
+            let relative_velocity = other.vel.subract(&self.vel);
+            let velocity_along_normal = relative_velocity.dot(&line_of_impact);
+
+            if velocity_along_normal > 0.0 {
+                return;
+            }
+
+            let restitution = 1.0; // Elastic collision
+            let impulse_scalar = -(1.0 + restitution) * velocity_along_normal;
+
+            let impulse = line_of_impact.multiply(&Vector::new(impulse_scalar, impulse_scalar));
+
+            self.vel = self
+                .vel
+                .subract(&impulse.divide(&Vector::new(self.mass, self.mass)));
+            other.vel = other
+                .vel
+                .add(&impulse.divide(&Vector::new(other.mass, other.mass)));
+        }
     }
 }
