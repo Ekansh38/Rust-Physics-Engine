@@ -16,8 +16,8 @@ fn update_all_balls(balls: &mut Vec<Ball>, delta_time: f32, mouse_tregectory: &m
 #[macroquad::main("Physics Engine")]
 async fn main() {
     let mut balls = vec![
-        Ball::new(500.0, 100.0, 75.0, RED, 0.999, 0.6, 10.8),
-        Ball::new(100.0, 100.0, 45.0, YELLOW, 0.999, 0.8, 1.8),
+        Ball::new(500.0, 100.0, 75.0, RED, 0.99, 0.6, 10.8),
+        Ball::new(100.0, 100.0, 45.0, YELLOW, 0.99, 0.8, 1.8),
     ];
 
     let mut mouse_tregectory: Vec<Vector> = Vec::new();
