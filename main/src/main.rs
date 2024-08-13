@@ -15,12 +15,12 @@ fn update_all_balls(balls: &mut Vec<Ball>, delta_time: f32, mouse_tregectory: &m
 
 #[macroquad::main("Physics Engine")]
 async fn main() {
-    let mut balls = vec![
-        Ball::new(500.0, 100.0, 75.0, RED, 0.99, 0.6, 10.8),
-        Ball::new(100.0, 100.0, 45.0, YELLOW, 0.99, 0.8, 1.8),
-    ];
-
-    let mut mouse_tregectory: Vec<Vector> = Vec::new();
+    // let mut balls = vec![
+    //     Ball::new(500.0, 100.0, 75.0, RED, 0.99, 0.6, 2.0),
+    //     Ball::new(100.0, 100.0, 45.0, YELLOW, 0.99, 0.8, 1.0),
+    // ];
+    //
+    // let mut mouse_tregectory: Vec<Vector> = Vec::new();
 
     // Fps Logic
     let mut fps = 0;
@@ -36,7 +36,7 @@ async fn main() {
 
         clear_background(BLACK);
 
-        update_all_balls(&mut balls, delta_time, &mut mouse_tregectory);
+        // update_all_balls(&mut balls, delta_time, &mut mouse_tregectory);
 
         // Logic for FPS
 
