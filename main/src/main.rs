@@ -1,13 +1,17 @@
 use macroquad::prelude::*;
 
-fn update_all_balls(balls: &mut Vec<Ball>, delta_time: f32, mouse_tregectory: &mut Vec<Vector>) {
-    for ball in balls.iter_mut() {
-        ball.throwing_logic(mouse_tregectory);
-        ball.update(delta_time);
+fn update_all_particles(
+    particles: &mut Vec<Particle>,
+    delta_time: f32,
+    mouse_tregectory: &mut Vec<Vector>,
+) {
+    for particle in particles.iter_mut() {
+        particle.throwing_logic(mouse_tregectory);
+        particle.update(delta_time);
     }
-    for i in 0..balls.len() {
-        for j in i + 1..balls.len() {
-            let (left, right) = balls.split_at_mut(j);
+    for i in 0..particles.len() {
+        for j in i + 1..particles.len() {
+            let (left, right) = particles.split_at_mut(j);
             left[i].collide(&mut right[0]);
         }
     }
@@ -15,12 +19,12 @@ fn update_all_balls(balls: &mut Vec<Ball>, delta_time: f32, mouse_tregectory: &m
 
 #[macroquad::main("Physics Engine")]
 async fn main() {
-    // let mut balls = vec![
-    //     Ball::new(500.0, 100.0, 75.0, RED, 0.99, 0.6, 2.0),
-    //     Ball::new(100.0, 100.0, 45.0, YELLOW, 0.99, 0.8, 1.0),
-    // ];
-    //
-    // let mut mouse_tregectory: Vec<Vector> = Vec::new();
+    let mut particles = vec![
+        Particle::new(500.0, 100.0, 75.0, RED, 0.99, 0.6, 2.0),
+        Particle::new(100.0, 100.0, 45.0, YELLOW, 0.99, 0.8, 1.0),
+    ];
+
+    let mut mouse_tregectory: Vec<Vector> = Vec::new();
 
     // Fps Logic
     let mut fps = 0;
@@ -36,7 +40,7 @@ async fn main() {
 
         clear_background(BLACK);
 
-        // update_all_balls(&mut balls, delta_time, &mut mouse_tregectory);
+        update_all_particles(&mut particles, delta_time, &mut mouse_tregectory);
 
         // Logic for FPS
 
@@ -90,17 +94,31 @@ impl Vector {
         }
     }
 
-    fn divide(&self, other: &Vector) -> Vector {
+    fn divide(&self, scalar: f32) -> Vector {
+        Self {
+            x: self.x / scalar,
+            y: self.y / scalar,
+        }
+    }
+
+    fn divide_vectors(&self, other: &Vector) -> Vector {
         Self {
             x: self.x / other.x,
             y: self.y / other.y,
         }
     }
 
-    fn multiply(&self, other: &Vector) -> Vector {
+    fn multiply_vectors(&self, other: &Vector) -> Vector {
         Self {
             x: self.x * other.x,
             y: self.y * other.y,
+        }
+    }
+
+    fn multiply(&self, scalar: f32) -> Vector {
+        Self {
+            x: self.x * scalar,
+            y: self.y * scalar,
         }
     }
 
@@ -115,7 +133,7 @@ impl Vector {
     }
 }
 
-struct Ball {
+struct Particle {
     pos: Vector,
     r: f32,
     c: Color,
@@ -127,7 +145,7 @@ struct Ball {
     force: Vector,
 }
 
-impl Ball {
+impl Particle {
     fn new(
         x: f32,
         y: f32,
@@ -159,13 +177,12 @@ impl Ball {
     fn euler_integration(&mut self, delta_time: f32) {
         // Newton's second law of motion: F = ma
         let mass_vector = Vector::new(self.mass, self.mass);
-        let acc = self.force.divide(&mass_vector);
+        let acc = self.force.divide_vectors(&mass_vector);
 
         // Update velocity using Euler's method
-        let delta_time_vector = Vector::new(delta_time, delta_time);
-        self.vel = self.vel.add(&acc.multiply(&delta_time_vector));
+        self.vel = self.vel.add(&acc.multiply(delta_time));
 
-        self.pos = self.pos.add(&self.vel.multiply(&delta_time_vector));
+        self.pos = self.pos.add(&self.vel.multiply(delta_time));
     }
 
     fn apply_gravity(&mut self, delta_time: f32) {
@@ -204,11 +221,10 @@ impl Ball {
             self.vel.y = 0.0;
             let push = mouse_tregectory[0].subract(&mouse_tregectory[mouse_tregectory.len() - 1]);
 
-            let reverse_vector = Vector::new(-1.0, -1.0);
-            let push = push.multiply(&reverse_vector);
+            let push = push.multiply(-1.0);
 
-            let mag = Vector::new(2000.0, 2000.0);
-            let push = push.multiply(&mag);
+            let mag = 2000.0;
+            let push = push.multiply(mag);
 
             let force = push;
             self.apply_force(force);
@@ -231,7 +247,7 @@ impl Ball {
         // Update the force to 0
         self.force = Vector::new(0.0, 0.0);
 
-        // Draw the ball
+        // Draw the particle
         self.draw();
     }
 
@@ -266,15 +282,12 @@ impl Ball {
         self.force = force;
     }
 
-    fn collide(&mut self, other: &mut Ball) {
+    fn collide(&mut self, other: &mut Particle) {
         let distance = self.pos.dist(&other.pos);
         let sum_radii = self.r + other.r;
 
         if distance < sum_radii {
-            let line_of_impact = other
-                .pos
-                .subract(&self.pos)
-                .divide(&Vector::new(distance, distance));
+            let line_of_impact = other.pos.subract(&self.pos).divide(distance);
 
             let relative_velocity = other.vel.subract(&self.vel);
             let velocity_along_normal = relative_velocity.dot(&line_of_impact);
@@ -283,17 +296,13 @@ impl Ball {
                 return;
             }
 
-            let restitution = 1.0; // Elastic collision
+            let restitution = 0.7; // Elastic collision
             let impulse_scalar = -(1.0 + restitution) * velocity_along_normal;
 
-            let impulse = line_of_impact.multiply(&Vector::new(impulse_scalar, impulse_scalar));
+            let impulse = line_of_impact.multiply(impulse_scalar);
 
-            self.vel = self
-                .vel
-                .subract(&impulse.divide(&Vector::new(self.mass, self.mass)));
-            other.vel = other
-                .vel
-                .add(&impulse.divide(&Vector::new(other.mass, other.mass)));
+            self.vel = self.vel.subract(&impulse.divide(self.mass));
+            other.vel = other.vel.add(&impulse.divide(other.mass));
         }
     }
 }
