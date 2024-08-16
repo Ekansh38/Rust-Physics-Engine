@@ -1,6 +1,6 @@
 use macroquad::prelude::*;
 
-fn update_all_particles(
+fn update_all_particles_as_balls(
     particles: &mut Vec<Particle>,
     delta_time: f32,
     mouse_tregectory: &mut Vec<Vector>,
@@ -17,12 +17,61 @@ fn update_all_particles(
     }
 }
 
+fn update_all_particles(
+    particles: &mut Vec<Particle>,
+    delta_time: f32,
+    _mouse_tregectory: &mut Vec<Vector>,
+) {
+    for particle in particles.iter_mut() {
+        // particle.throwing_logic(mouse_tregectory);
+        particle.update(delta_time);
+    }
+}
+
+fn update_all_springs(springs: &mut Vec<Spring>, particles: &mut Vec<Particle>) {
+    for spring in springs.iter_mut() {
+        spring.update(particles);
+    }
+}
+
 #[macroquad::main("Physics Engine")]
 async fn main() {
-    let mut particles = vec![
-        Particle::new(500.0, 100.0, 75.0, RED, 0.99, 0.6, 2.0),
-        Particle::new(100.0, 100.0, 45.0, YELLOW, 0.99, 0.8, 1.0),
-    ];
+    let mut particles = vec![];
+    let mut springs = vec![];
+    for x in 1..10 {
+        for y in 1..4 {
+            let x = x as f32 * 50.0 + 50.0;
+            let y = y as f32 * 50.0 + 50.0;
+            let r = 10.0;
+            let c = Color::new(0.0, 0.0, 1.0, 1.0);
+            let surface_friction = 0.9;
+            let retention = 0.7;
+            let mass = 1.0;
+            particles.push(Particle::new(x, y, r, c, surface_friction, retention, mass));
+        }
+    }
+
+    let stiffness = 5.0;
+    let damping = 1.0;
+    let rest_length = 100.0;
+
+    for i in 0..particles.len() {
+        if i + 1 < particles.len() {
+            springs.push(Spring::new(i, i + 1, rest_length, stiffness, damping));
+        }
+    }
+
+    for i in 0..particles.len() {
+        if i + 3 < particles.len() {
+            springs.push(Spring::new(i, i + 3, rest_length, stiffness, damping));
+        }
+    }
+
+    for i in 0..particles.len() {
+        if i + 4 < particles.len() {
+            springs.push(Spring::new(i, i + 4, rest_length, stiffness, damping));
+        }
+    }
 
     let mut mouse_tregectory: Vec<Vector> = Vec::new();
 
@@ -41,6 +90,7 @@ async fn main() {
         clear_background(BLACK);
 
         update_all_particles(&mut particles, delta_time, &mut mouse_tregectory);
+        update_all_springs(&mut springs, &mut particles);
 
         // Logic for FPS
 
@@ -133,6 +183,54 @@ impl Vector {
     }
 }
 
+struct Spring {
+    a: usize,
+    b: usize,
+    rest_length: f32,
+    stiffness: f32,
+    damping: f32,
+}
+
+impl Spring {
+    fn new(a: usize, b: usize, rest_length: f32, stiffness: f32, damping: f32) -> Self {
+        Self {
+            a,
+            b,
+            rest_length,
+            stiffness,
+            damping,
+        }
+    }
+
+    fn update(&mut self, particles: &mut Vec<Particle>) {
+        let delta = particles[self.b].pos.subract(&particles[self.a].pos);
+        let distance = delta.magnitude();
+        let difference = distance - self.rest_length;
+        let normal = delta.divide(distance);
+
+        let force = normal.multiply(self.stiffness * difference);
+
+        let relative_velocity = particles[self.b].vel.subract(&particles[self.a].vel);
+        let damping_force = normal.multiply(self.damping * relative_velocity.dot(&normal));
+
+        let force = force.add(&damping_force);
+
+        particles[self.b].apply_force(force.multiply(-1.0));
+        particles[self.a].apply_force(force);
+
+        // Drawing the spring
+
+        draw_line(
+            particles[self.a].pos.x,
+            particles[self.a].pos.y,
+            particles[self.b].pos.x,
+            particles[self.b].pos.y,
+            1.0,
+            WHITE,
+        );
+    }
+}
+
 struct Particle {
     pos: Vector,
     r: f32,
@@ -187,7 +285,7 @@ impl Particle {
 
     fn apply_gravity(&mut self, delta_time: f32) {
         // Apply gravity
-        let pixels_per_meter = 200.0;
+        let pixels_per_meter = 100.0;
         let universal_gravity_constant = 9.8; // 9.8 m/s^2
         let gravity = universal_gravity_constant * pixels_per_meter;
         self.vel.y += gravity * delta_time;
